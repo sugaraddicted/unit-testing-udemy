@@ -8,54 +8,137 @@ using System;
 namespace TestNinja.UnitTests.Mocking
 {
     [TestFixture]
-    public class BookingHelperTests
+    public class BookingHelper_OverlappingBookingExistsTests
     {
-        [Test]
-        public void OverlappingBookingsExist_Exists_ReturnTrue()
+        private Booking _existingBooking;
+        private Mock<IBookingService> _service;
+
+        [SetUp]
+        public void SetUp()
         {
-            // Arrange
-            var service = new Mock<IBookingService>();
-            var booking = new Booking
+            _existingBooking = new Booking
             {
-                Id = 1,
-                ArrivalDate = DateTime.Now,
-                DepartureDate = DateTime.Now
+                Id = 2,
+                ArrivalDate = ArriveOn(2023, 1, 11),
+                DepartureDate = DepartOn(2023, 1, 16),
+                Reference = "a",
             };
 
-            // Setup the mock service to return a list with an overlapping booking
-            service.Setup(s => s.GetOtherActiveBookings(booking)).Returns(new List<Booking>
+            _service = new Mock<IBookingService>();
+            _service.Setup(s => s.GetActiveBookings(1)).Returns(new List<Booking>
             {
-                new Booking
-                {
-                   Id = 2,
-                   ArrivalDate = DateTime.Now,
-                   DepartureDate = DateTime.Now
-                }
-            }.AsQueryable);
-
-            // Act
-            var result = BookingHelper.OverlappingBookingsExist(service.Object, booking);
-
-            // Assert
-            Assert.That(result, Is.True);
+               _existingBooking
+            }.AsQueryable());
         }
 
         [Test]
-        public void OverlappingBookingsExist_DoesntExist_ReturnFalse()
+        public void BookingStartsAndFinishesBeforeAnExistingBooking_ReturnEmptyString()
         {
-            var service = new Mock<IBookingService>();
-            var booking = new Booking
-            {
-                Id = 1,
-                ArrivalDate = DateTime.Now,
-                DepartureDate = DateTime.Now
-            };
+            var result = BookingHelper.OverlappingBookingsExist(_service.Object,
+                 new Booking
+                 {
+                     Id = 1,
+                     ArrivalDate = Before(_existingBooking.ArrivalDate, days: 2),
+                     DepartureDate = Before(_existingBooking.ArrivalDate),
+                 });
+            Assert.That(result, Is.Empty);
+        }
 
-            service.Setup(s => s.GetOtherActiveBookings(booking)).Returns(new List<Booking>().AsQueryable);
+        [Test]
+        public void BookingStartsBeforeAndEndsInTheMiddleOfAnExistingBooking_ReturnExistingBookingReference()
+        {
+            var result = BookingHelper.OverlappingBookingsExist(_service.Object,
+                 new Booking
+                 {
+                     Id = 1,
+                     ArrivalDate = Before(_existingBooking.ArrivalDate),
+                     DepartureDate = After(_existingBooking.ArrivalDate),
+                 });
+            Assert.That(result, Is.EqualTo(_existingBooking.Reference));
+        }
 
-            var result = BookingHelper.OverlappingBookingsExist(service.Object, booking);
+        [Test]
+        public void BookingsOverlapButNewBookingIsCancelled_ReturnEmptyString()
+        {
+            var result = BookingHelper.OverlappingBookingsExist(_service.Object,
+                 new Booking
+                 {
+                     Id = 1,
+                     ArrivalDate = Before(_existingBooking.ArrivalDate),
+                     DepartureDate = After(_existingBooking.ArrivalDate),
+                     Status = "Cancelled"
+                 });
+            Assert.That(result, Is.Empty);
+        }
+        
+        [Test]
+        public void BookingStartsBeforeAndEndsAfterAnExistingBooking_ReturnExistingBookingReference()
+        {
+            var result = BookingHelper.OverlappingBookingsExist(_service.Object,
+                 new Booking
+                 {
+                     Id = 1,
+                     ArrivalDate = Before(_existingBooking.ArrivalDate),
+                     DepartureDate = After(_existingBooking.DepartureDate),
+                 });
+            Assert.That(result, Is.EqualTo(_existingBooking.Reference));
+        } 
 
-            Assert.That(result, Is.False);
+        [Test]
+        public void BookingStartsAndEndsInTheMiddleOfAnExistingBooking_ReturnExistingBookingReference()
+        {
+            var result = BookingHelper.OverlappingBookingsExist(_service.Object,
+                 new Booking
+                 {
+                     Id = 1,
+                     ArrivalDate = After(_existingBooking.ArrivalDate),
+                     DepartureDate = Before(_existingBooking.DepartureDate),
+                 });
+            Assert.That(result, Is.EqualTo(_existingBooking.Reference));
+        }
+        
+        [Test]
+        public void BookingStartsInTheMiddleAndEndsAfterAnExistingBooking_ReturnExistingBookingReference()
+        {
+            var result = BookingHelper.OverlappingBookingsExist(_service.Object,
+                 new Booking
+                 {
+                     Id = 1,
+                     ArrivalDate = After(_existingBooking.ArrivalDate),
+                     DepartureDate = After(_existingBooking.DepartureDate),
+                 });
+            Assert.That(result, Is.EqualTo(_existingBooking.Reference));
+        }
+         
+        [Test]
+        public void BookingStartsAndEndsAfterAnExistingBooking_ReturnEmptyString()
+        {
+            var result = BookingHelper.OverlappingBookingsExist(_service.Object,
+                 new Booking
+                 {
+                     Id = 1,
+                     ArrivalDate = After(_existingBooking.DepartureDate),
+                     DepartureDate = After(_existingBooking.DepartureDate, days: 2),
+                 });
+            Assert.That(result, Is.Empty);
+        }
+
+        private DateTime ArriveOn(int year, int month, int day)
+        {
+            return new DateTime(year, month, day, 14, 0, 0);
+        }
+
+        private DateTime DepartOn(int year, int month, int day)
+        {
+            return new DateTime(year, month, day, 10, 0, 0);
+        }
+        private DateTime Before(DateTime dateTime, int days = 1)
+        {
+            return dateTime.AddDays(-days);
+        }
+        private DateTime After(DateTime dateTime, int days = 1)
+        {
+            return dateTime.AddDays(days);
         }
     }
 }
