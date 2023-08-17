@@ -6,6 +6,9 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestNinja", "TestNinja\TestNinja.csproj", "{7328740E-4B78-464F-8352-65D887F2145F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestNinja.UnitTests", "TestNinja.UnitTests\TestNinja.UnitTests.csproj", "{A1512576-8E6F-4713-9294-80AF91D3DEFF}"
+	ProjectSection(ProjectDependencies) = postProject
+		{7328740E-4B78-464F-8352-65D887F2145F} = {7328740E-4B78-464F-8352-65D887F2145F}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
